@@ -12,6 +12,9 @@ from src.core.logging import get_logger, log_exception, setup_logging
 from src.core.metrics_middleware import MetricsMiddleware, PerformanceTimingMiddleware
 from src.core.api_key_middleware import APIKeyRateLimitMiddleware
 from src.core.sentry import setup_sentry
+from src.core.security_headers import SecurityHeadersMiddleware
+from src.core.cors import get_cors_middleware
+from src.core.https_redirect import get_https_redirect_middleware
 from src.db.redis_client import redis_manager
 from src.db.cache_manager import cache_health_checker
 from src.api.v1.health import router as health_router
@@ -66,17 +69,42 @@ app = FastAPI(
 )
 
 # Add custom middleware (order matters - last added is executed first)
+
+# Add HTTPS redirect middleware (only in production)
+https_redirect_middleware = get_https_redirect_middleware(
+    environment=settings.environment,
+    exclude_paths=["/health", "/ready", "/metrics", "/live"],
+    exclude_hosts=["localhost", "127.0.0.1", "testserver"]
+)
+app.add_middleware(type(https_redirect_middleware), **https_redirect_middleware.__dict__)
+
+# Add security headers middleware
+security_headers_middleware = SecurityHeadersMiddleware(
+    app=app,
+    hsts_max_age=31536000 if settings.is_production else 0,
+    custom_headers={
+        "X-Service-Name": "lit_law411-agent",
+        "X-Service-Version": "0.1.0"
+    }
+)
+app.add_middleware(type(security_headers_middleware), **security_headers_middleware.__dict__)
+
+# Add performance and metrics middleware
 app.add_middleware(PerformanceTimingMiddleware)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(APIKeyRateLimitMiddleware)
 
-# Configure CORS
+# Configure CORS with enhanced settings
+cors_config = get_cors_middleware(
+    allow_origins=settings.cors_origins if hasattr(settings, 'cors_origins') else None,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    max_age=3600
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_config
 )
 
 # Include routers
