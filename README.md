@@ -5,6 +5,8 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![CI](https://github.com/softengineware/lit_law411-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/softengineware/lit_law411-agent/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/softengineware/lit_law411-agent/branch/main/graph/badge.svg)](https://codecov.io/gh/softengineware/lit_law411-agent)
 
 ## Overview
 
@@ -249,24 +251,97 @@ Install pre-commit hooks to ensure code quality:
 pre-commit install
 ```
 
+## Docker Development Environment
+
+The project includes a complete Docker setup for local development:
+
+### Starting the Development Environment
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+
+# Stop and remove volumes (clean slate)
+docker-compose down -v
+```
+
+### Available Services
+
+- **PostgreSQL**: Main database (port 5432)
+- **Redis**: Cache and message broker (port 6379)
+- **Elasticsearch**: Full-text search (port 9200)
+- **Kibana**: Elasticsearch UI (port 5601) - development only
+- **Flower**: Celery monitoring (port 5555) - development only
+- **Application**: FastAPI server (port 8000)
+- **Celery Worker**: Background task processor
+- **Celery Beat**: Scheduled task runner
+
+### Development Tips
+
+1. **Hot Reload**: The application automatically reloads when you change code
+2. **Database Access**:
+
+   ```bash
+   docker-compose exec postgres psql -U lit_law411
+   ```
+
+3. **Redis CLI**:
+
+   ```bash
+   docker-compose exec redis redis-cli
+   ```
+
+4. **View Celery Tasks**:
+   - Open <http://localhost:5555> for Flower UI
+5. **Elasticsearch Queries**:
+   - Use Kibana at <http://localhost:5601>
+
+### Troubleshooting Docker
+
+If services fail to start:
+
+```bash
+# Check service status
+docker-compose ps
+
+# View detailed logs
+docker-compose logs [service-name]
+
+# Rebuild images after dependency changes
+docker-compose build --no-cache
+
+# Reset everything
+docker-compose down -v
+docker-compose up -d
+```
+
 ## Deployment
 
 ### Production Deployment
 
 1. Build Docker image:
-```bash
-docker build -t lit_law411-agent:latest .
-```
+
+   ```bash
+   docker build -t lit_law411-agent:latest .
+   ```
 
 2. Deploy to Kubernetes:
-```bash
-kubectl apply -f k8s/
-```
+
+   ```bash
+   kubectl apply -f k8s/
+   ```
 
 3. Configure monitoring:
-```bash
-kubectl apply -f k8s/monitoring/
-```
+
+   ```bash
+   kubectl apply -f k8s/monitoring/
+   ```
 
 See [deployment guide](docs/deployment.md) for detailed instructions.
 
@@ -286,6 +361,7 @@ See [deployment guide](docs/deployment.md) for detailed instructions.
 ### API Rate Limits
 
 Default rate limits:
+
 - Anonymous: 10 requests/minute
 - Authenticated: 100 requests/minute
 - Premium: 1000 requests/minute
@@ -308,7 +384,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- 📧 Email: support@law411.com
+- 📧 Email: <support@law411.com>
 - 🐛 Issues: [GitHub Issues](https://github.com/softengineware/lit_law411-agent/issues)
 - 📖 Documentation: [Full Documentation](https://docs.law411.com)
 

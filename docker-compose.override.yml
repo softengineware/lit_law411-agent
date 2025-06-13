@@ -1,0 +1,54 @@
+# Local development overrides
+# This file is automatically loaded by docker-compose
+# Use for local development settings that shouldn't be in production
+
+version: '3.8'
+
+services:
+  # Development database with exposed ports
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      # More verbose logging for development
+      POSTGRES_LOG_STATEMENT: all
+
+  # Development app with hot reload
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./alembic:/app/alembic
+      # Exclude __pycache__ directories
+      - /app/src/__pycache__
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+
+  # Development worker with hot reload
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - /app/src/__pycache__
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    command: watchmedo auto-restart --directory=./src --pattern="*.py" --recursive -- celery -A src.workers.celery_app worker --loglevel=debug
+
+  # Enable optional services for development
+  kibana:
+    profiles: []  # Remove profile requirement for development
+
+  flower:
+    profiles: []  # Remove profile requirement for development
