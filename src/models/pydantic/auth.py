@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserRegistration(BaseModel):
@@ -17,7 +17,8 @@ class UserRegistration(BaseModel):
     organization: Optional[str] = Field(None, max_length=255, description="Organization")
     job_title: Optional[str] = Field(None, max_length=100, description="Job title")
     
-    @validator('password')
+    @field_validator('password')
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength."""
         from ...core.security import validate_password_strength
@@ -27,7 +28,8 @@ class UserRegistration(BaseModel):
             raise ValueError(f"Password validation failed: {'; '.join(issues)}")
         return v
     
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def validate_username(cls, v):
         """Validate username format."""
         if v is not None:
@@ -71,7 +73,8 @@ class PasswordResetConfirm(BaseModel):
     token: str = Field(..., description="Password reset token")
     new_password: str = Field(..., min_length=8, description="New password")
     
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength."""
         from ...core.security import validate_password_strength
@@ -88,7 +91,8 @@ class PasswordChange(BaseModel):
     current_password: str = Field(..., description="Current password")
     new_password: str = Field(..., min_length=8, description="New password")
     
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength."""
         from ...core.security import validate_password_strength
@@ -142,7 +146,8 @@ class UserUpdate(BaseModel):
     job_title: Optional[str] = Field(None, max_length=100, description="Job title")
     preferences: Optional[dict] = Field(None, description="User preferences")
     
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def validate_username(cls, v):
         """Validate username format."""
         if v is not None:

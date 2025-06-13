@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from src.core.config import settings
 from src.core.logging import get_logger, log_exception, setup_logging
 from src.core.metrics_middleware import MetricsMiddleware, PerformanceTimingMiddleware
+from src.core.api_key_middleware import APIKeyRateLimitMiddleware
 from src.core.sentry import setup_sentry
 from src.db.redis_client import redis_manager
 from src.db.cache_manager import cache_health_checker
@@ -67,6 +68,7 @@ app = FastAPI(
 # Add custom middleware (order matters - last added is executed first)
 app.add_middleware(PerformanceTimingMiddleware)
 app.add_middleware(MetricsMiddleware)
+app.add_middleware(APIKeyRateLimitMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -80,9 +82,12 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router)
 
-# Import and include auth router
+# Import and include routers
 from src.api.v1.auth import router as auth_router
+from src.api.v1.api_keys import router as api_keys_router
+
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(api_keys_router, prefix="/api/v1")
 
 
 @app.get("/")

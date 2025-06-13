@@ -174,6 +174,12 @@ class User(BaseModel):
         cascade="all, delete-orphan"
     )
     
+    api_keys = relationship(
+        "APIKey",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    
     @property
     def full_name(self) -> str:
         """Get user's full name."""

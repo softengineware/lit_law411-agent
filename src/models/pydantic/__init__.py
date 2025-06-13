@@ -1,5 +1,17 @@
 """Pydantic models for API schemas."""
 
+from .api_key import (
+    APIKeyCreate,
+    APIKeyUpdate,
+    APIKeyResponse,
+    APIKeyCreateResponse,
+    APIKeyUsageStats,
+    APIKeyListResponse,
+    APIKeyRotateResponse,
+    APIKeyDeleteResponse,
+    APIKeyValidationError,
+    RateLimitInfo,
+)
 from .auth import (
     UserRegistration,
     UserLogin,
@@ -20,6 +32,18 @@ from .auth import (
 )
 
 __all__ = [
+    # API Key models
+    "APIKeyCreate",
+    "APIKeyUpdate",
+    "APIKeyResponse",
+    "APIKeyCreateResponse",
+    "APIKeyUsageStats",
+    "APIKeyListResponse",
+    "APIKeyRotateResponse",
+    "APIKeyDeleteResponse",
+    "APIKeyValidationError",
+    "RateLimitInfo",
+    # Auth models
     "UserRegistration",
     "UserLogin", 
     "TokenResponse",
