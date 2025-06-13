@@ -73,6 +73,34 @@ class SearchResult:
     duration: Optional[str] = None
 
 
+@dataclass
+class PlaylistMetadata:
+    """YouTube playlist metadata."""
+    playlist_id: str
+    title: str
+    description: str
+    channel_title: str
+    channel_id: str
+    published_at: datetime
+    video_count: int
+    thumbnail_url: Optional[str]
+    privacy_status: str = "public"
+
+
+@dataclass
+class PlaylistItem:
+    """YouTube playlist item."""
+    video_id: str
+    title: str
+    description: str
+    channel_title: str
+    channel_id: str
+    published_at: datetime
+    position: int
+    thumbnail_url: Optional[str]
+    playlist_id: str
+
+
 class YouTubeQuotaManager:
     """Manages YouTube API quota usage."""
     
@@ -92,7 +120,9 @@ class YouTubeQuotaManager:
             'videos': 1,
             'channels': 1,
             'captions': 200,
-            'commentThreads': 1
+            'commentThreads': 1,
+            'playlists': 1,
+            'playlistItems': 1
         }
     
     def check_quota(self, operation: str, count: int = 1) -> bool:
@@ -454,6 +484,236 @@ class YouTubeClient:
         except Exception as e:
             logger.error(f"Error downloading audio for {video_id}: {e}")
             return None
+    
+    def get_channel_playlists(self, channel_id: str, max_results: int = 50) -> List[PlaylistMetadata]:
+        """Get all playlists for a channel, filtered for legal content.
+        
+        Args:
+            channel_id: YouTube channel ID
+            max_results: Maximum playlists to return
+            
+        Returns:
+            List of legal-related playlists
+        """
+        if not self.quota_manager.check_quota('playlists', max_results // 50 + 1):
+            logger.warning("YouTube API quota exceeded")
+            return []
+        
+        playlists = []
+        page_token = None
+        
+        try:
+            while len(playlists) < max_results:
+                request_params = {
+                    'part': 'snippet,contentDetails',
+                    'channelId': channel_id,
+                    'maxResults': min(50, max_results - len(playlists))
+                }
+                
+                if page_token:
+                    request_params['pageToken'] = page_token
+                
+                request = self.youtube.playlists().list(**request_params)
+                data = self._execute_request(request)
+                self.quota_manager.use_quota('playlists')
+                
+                for item in data.get('items', []):
+                    snippet = item['snippet']
+                    content_details = item['contentDetails']
+                    
+                    # Filter for legal content
+                    if self._is_legal_content(snippet['title'], snippet['description']):
+                        playlists.append(PlaylistMetadata(
+                            playlist_id=item['id'],
+                            title=snippet['title'],
+                            description=snippet['description'],
+                            channel_title=snippet['channelTitle'],
+                            channel_id=snippet['channelId'],
+                            published_at=datetime.fromisoformat(snippet['publishedAt'].replace('Z', '+00:00')),
+                            video_count=content_details['itemCount'],
+                            thumbnail_url=snippet.get('thumbnails', {}).get('high', {}).get('url'),
+                            privacy_status=snippet.get('privacyStatus', 'public')
+                        ))
+                
+                page_token = data.get('nextPageToken')
+                if not page_token:
+                    break
+            
+            logger.info(f"Found {len(playlists)} legal playlists for channel {channel_id}")
+            return playlists[:max_results]
+            
+        except Exception as e:
+            logger.error(f"Error getting playlists for channel {channel_id}: {e}")
+            return playlists
+    
+    def get_playlist_videos(self, playlist_id: str, max_results: int = None) -> List[PlaylistItem]:
+        """Get all videos from a playlist.
+        
+        Args:
+            playlist_id: YouTube playlist ID
+            max_results: Maximum videos to return (None for all)
+            
+        Returns:
+            List of videos in the playlist
+        """
+        if max_results and not self.quota_manager.check_quota('playlistItems', max_results // 50 + 1):
+            logger.warning("YouTube API quota exceeded")
+            return []
+        
+        videos = []
+        page_token = None
+        
+        try:
+            while True:
+                request_params = {
+                    'part': 'snippet',
+                    'playlistId': playlist_id,
+                    'maxResults': 50
+                }
+                
+                if max_results:
+                    request_params['maxResults'] = min(50, max_results - len(videos))
+                
+                if page_token:
+                    request_params['pageToken'] = page_token
+                
+                request = self.youtube.playlistItems().list(**request_params)
+                data = self._execute_request(request)
+                self.quota_manager.use_quota('playlistItems')
+                
+                for item in data.get('items', []):
+                    snippet = item['snippet']
+                    
+                    # Skip deleted/private videos
+                    if snippet['title'] == 'Deleted video' or snippet['title'] == 'Private video':
+                        continue
+                    
+                    videos.append(PlaylistItem(
+                        video_id=snippet['resourceId']['videoId'],
+                        title=snippet['title'],
+                        description=snippet['description'],
+                        channel_title=snippet['channelTitle'],
+                        channel_id=snippet['channelId'],
+                        published_at=datetime.fromisoformat(snippet['publishedAt'].replace('Z', '+00:00')),
+                        position=snippet['position'],
+                        thumbnail_url=snippet.get('thumbnails', {}).get('high', {}).get('url'),
+                        playlist_id=playlist_id
+                    ))
+                
+                page_token = data.get('nextPageToken')
+                if not page_token or (max_results and len(videos) >= max_results):
+                    break
+            
+            logger.info(f"Found {len(videos)} videos in playlist {playlist_id}")
+            return videos[:max_results] if max_results else videos
+            
+        except Exception as e:
+            logger.error(f"Error getting videos from playlist {playlist_id}: {e}")
+            return videos
+    
+    def get_legal_videos_from_channel(self, channel_id: str, max_videos_per_playlist: int = None) -> Dict[str, List[PlaylistItem]]:
+        """Get all legal videos from all legal playlists in a channel.
+        
+        Args:
+            channel_id: YouTube channel ID
+            max_videos_per_playlist: Max videos per playlist (None for all)
+            
+        Returns:
+            Dictionary mapping playlist titles to lists of videos
+        """
+        logger.info(f"Starting legal content ingestion for channel {channel_id}")
+        
+        # Get all legal playlists
+        playlists = self.get_channel_playlists(channel_id)
+        
+        if not playlists:
+            logger.warning(f"No legal playlists found for channel {channel_id}")
+            return {}
+        
+        # Get videos from each legal playlist
+        all_videos = {}
+        total_videos = 0
+        
+        for playlist in playlists:
+            logger.info(f"Processing playlist: '{playlist.title}' ({playlist.video_count} videos)")
+            
+            videos = self.get_playlist_videos(playlist.playlist_id, max_videos_per_playlist)
+            
+            if videos:
+                all_videos[playlist.title] = videos
+                total_videos += len(videos)
+                logger.info(f"Added {len(videos)} videos from '{playlist.title}'")
+            else:
+                logger.warning(f"No videos found in playlist '{playlist.title}'")
+        
+        logger.info(f"Legal content ingestion complete: {total_videos} videos from {len(playlists)} playlists")
+        return all_videos
+    
+    def bulk_get_video_details(self, video_ids: List[str], batch_size: int = 50) -> List[VideoMetadata]:
+        """Get details for multiple videos efficiently.
+        
+        Args:
+            video_ids: List of YouTube video IDs
+            batch_size: Number of videos to request per API call (max 50)
+            
+        Returns:
+            List of video metadata objects
+        """
+        if not self.quota_manager.check_quota('videos', len(video_ids) // batch_size + 1):
+            logger.warning("YouTube API quota exceeded")
+            return []
+        
+        all_videos = []
+        
+        # Process videos in batches
+        for i in range(0, len(video_ids), batch_size):
+            batch_ids = video_ids[i:i + batch_size]
+            
+            try:
+                request = self.youtube.videos().list(
+                    part='snippet,statistics,contentDetails',
+                    id=','.join(batch_ids)
+                )
+                
+                data = self._execute_request(request)
+                self.quota_manager.use_quota('videos')
+                
+                for item in data.get('items', []):
+                    snippet = item['snippet']
+                    statistics = item.get('statistics', {})
+                    
+                    # Check if captions are available (this would require additional API calls)
+                    # For bulk operations, we'll skip this to save quota
+                    captions_available = False
+                    
+                    video_metadata = VideoMetadata(
+                        video_id=item['id'],
+                        title=snippet['title'],
+                        description=snippet['description'],
+                        channel_title=snippet['channelTitle'],
+                        channel_id=snippet['channelId'],
+                        published_at=datetime.fromisoformat(snippet['publishedAt'].replace('Z', '+00:00')),
+                        duration=item['contentDetails'].get('duration'),
+                        view_count=int(statistics.get('viewCount', 0)) if statistics.get('viewCount') else None,
+                        like_count=int(statistics.get('likeCount', 0)) if statistics.get('likeCount') else None,
+                        comment_count=int(statistics.get('commentCount', 0)) if statistics.get('commentCount') else None,
+                        tags=snippet.get('tags', []),
+                        category_id=snippet.get('categoryId', ''),
+                        default_language=snippet.get('defaultLanguage'),
+                        thumbnail_url=snippet.get('thumbnails', {}).get('high', {}).get('url'),
+                        captions_available=captions_available
+                    )
+                    
+                    all_videos.append(video_metadata)
+                
+                logger.info(f"Processed batch {i//batch_size + 1}: {len(data.get('items', []))} videos")
+                
+            except Exception as e:
+                logger.error(f"Error processing video batch {i//batch_size + 1}: {e}")
+                continue
+        
+        logger.info(f"Bulk video details complete: {len(all_videos)} videos processed")
+        return all_videos
 
 
 # Factory function for easy instantiation
