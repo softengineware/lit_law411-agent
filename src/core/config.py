@@ -86,9 +86,10 @@ class Settings(BaseSettings):
     session_secret: Optional[str] = Field(default=None, description="Session secret key")
 
     # CORS
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
-        description="Allowed CORS origins",
+    cors_origins_str: str = Field(
+        default="http://localhost:3000,http://localhost:8000",
+        description="Allowed CORS origins (comma-separated)",
+        alias="cors_origins"
     )
 
     # Rate Limiting
@@ -142,13 +143,12 @@ class Settings(BaseSettings):
             raise ValueError(f"Log level must be one of {allowed}")
         return v
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
-        """Parse CORS origins from comma-separated string or list."""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins(self) -> list[str]:
+        """Get CORS origins as a list."""
+        if not self.cors_origins_str or not self.cors_origins_str.strip():
+            return ["http://localhost:3000", "http://localhost:8000"]
+        return [origin.strip() for origin in self.cors_origins_str.split(",") if origin.strip()]
 
     @property
     def is_development(self) -> bool:
