@@ -36,21 +36,21 @@ class Settings(BaseSettings):
 
     # Three-Database Strategy
     # Airtable
-    airtable_api_key: str = Field(description="Airtable API key")
-    airtable_base_id: str = Field(description="Airtable base ID")
+    airtable_api_key: Optional[str] = Field(default=None, description="Airtable API key")
+    airtable_base_id: Optional[str] = Field(default=None, description="Airtable base ID")
 
     # Supabase
-    supabase_url: str = Field(description="Supabase project URL")
-    supabase_key: str = Field(description="Supabase anon key")
+    supabase_url: Optional[str] = Field(default=None, description="Supabase project URL")
+    supabase_key: Optional[str] = Field(default=None, description="Supabase anon key")
 
     # Pinecone
-    pinecone_api_key: str = Field(description="Pinecone API key")
-    pinecone_environment: str = Field(description="Pinecone environment")
+    pinecone_api_key: Optional[str] = Field(default=None, description="Pinecone API key")
+    pinecone_environment: Optional[str] = Field(default=None, description="Pinecone environment")
     pinecone_index_name: str = Field(default="lit_law411", description="Pinecone index name")
 
     # External APIs
-    youtube_api_key: str = Field(description="YouTube Data API v3 key")
-    openai_api_key: str = Field(description="OpenAI API key")
+    youtube_api_key: Optional[str] = Field(default=None, description="YouTube Data API v3 key")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
 
     # Cache & Queue
     redis_url: str = Field(
@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     )
 
     # Security
-    jwt_secret_key: str = Field(description="JWT secret key")
+    jwt_secret_key: Optional[str] = Field(default=None, description="JWT secret key")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_access_token_expire_minutes: int = Field(
         default=30, description="Access token expiration"
@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = Field(
         default=7, description="Refresh token expiration"
     )
-    session_secret: str = Field(description="Session secret key")
+    session_secret: Optional[str] = Field(default=None, description="Session secret key")
 
     # CORS
     cors_origins: list[str] = Field(
