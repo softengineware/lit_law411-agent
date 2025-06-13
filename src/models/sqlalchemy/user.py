@@ -1,10 +1,9 @@
 """User model for authentication and authorization."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, DateTime, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -83,7 +82,7 @@ class User(BaseModel):
     )
     
     permissions: Mapped[Optional[list]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Additional permissions"
     )
     
@@ -164,7 +163,7 @@ class User(BaseModel):
     
     # Preferences
     preferences: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="User preferences and settings"
     )
     
@@ -191,7 +190,7 @@ class User(BaseModel):
         """Check if account is currently locked."""
         if not self.locked_until:
             return False
-        return datetime.utcnow() < self.locked_until
+        return datetime.now(timezone.utc) < self.locked_until
     
     def __repr__(self) -> str:
         """String representation."""

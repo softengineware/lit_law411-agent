@@ -2,8 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -35,7 +34,7 @@ class SearchQuery(BaseModel):
     
     # Search Parameters
     filters: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Applied filters (jurisdiction, date range, content type, etc.)"
     )
     
@@ -81,7 +80,7 @@ class SearchQuery(BaseModel):
     
     # Search Engine Information
     search_engines_used: Mapped[Optional[list]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Which search engines were used: elasticsearch, pinecone, etc."
     )
     
@@ -103,7 +102,7 @@ class SearchQuery(BaseModel):
     
     # Search Quality
     clicked_results: Mapped[Optional[list]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Which results were clicked by user"
     )
     
@@ -119,7 +118,7 @@ class SearchQuery(BaseModel):
     
     # Raw Data
     raw_results: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Raw search results for analysis"
     )
     

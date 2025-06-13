@@ -88,8 +88,9 @@ class TestUser:
         
         assert user.is_premium
         
-        # Test locked account
-        user.locked_until = datetime.utcnow()
+        # Test locked account (set to future time)
+        from datetime import timedelta, timezone
+        user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=10)
         assert user.is_account_locked
 
 

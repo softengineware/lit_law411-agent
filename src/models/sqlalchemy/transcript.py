@@ -2,8 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -64,13 +63,13 @@ class Transcript(BaseModel):
     
     # Detailed segments with timestamps
     segments: Mapped[Optional[list]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Detailed segments with timestamps and confidence scores"
     )
     
     # Raw output from transcription engine
     raw_output: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Raw output from transcription engine"
     )
     

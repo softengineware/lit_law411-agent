@@ -2,8 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Float, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -104,13 +103,13 @@ class Entity(BaseModel):
     
     # Structured Data
     structured_data: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Structured representation of entity data"
     )
     
     # Raw NER Output
     raw_ner_output: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Raw output from NER model"
     )
     

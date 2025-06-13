@@ -3,8 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -176,7 +175,7 @@ class Content(BaseModel):
     
     # Raw metadata from source
     raw_metadata: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSON,
         comment="Raw metadata from source API"
     )
     

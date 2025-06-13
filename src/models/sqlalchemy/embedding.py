@@ -2,8 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -23,7 +22,7 @@ class Embedding(BaseModel):
     
     # Embedding Data
     vector: Mapped[list[float]] = mapped_column(
-        ARRAY(Float),
+        JSON,
         nullable=False,
         comment="Vector embedding"
     )
