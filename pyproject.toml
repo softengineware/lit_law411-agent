@@ -34,7 +34,9 @@ dependencies = [
     "sentry-sdk[fastapi] (>=2.24.0,<3.0.0)",
     "airtable-python-wrapper (>=0.15.3,<0.16.0)",
     "supabase (>=2.15.3,<3.0.0)",
-    "asyncpg (>=0.30.0,<0.31.0)"
+    "asyncpg (>=0.30.0,<0.31.0)",
+    "psutil (>=7.0.0,<8.0.0)",
+    "prometheus-client (>=0.22.1,<0.23.0)"
 ]
 
 

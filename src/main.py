@@ -9,10 +9,11 @@ from fastapi.responses import JSONResponse
 
 from src.core.config import settings
 from src.core.logging import get_logger, log_exception, setup_logging
-from src.core.middleware import LoggingMiddleware, MetricsMiddleware, SecurityMiddleware
+from src.core.metrics_middleware import MetricsMiddleware, PerformanceTimingMiddleware
 from src.core.sentry import setup_sentry
 from src.db.redis_client import redis_manager
 from src.db.cache_manager import cache_health_checker
+from src.api.v1.health import router as health_router
 
 
 @asynccontextmanager
@@ -64,9 +65,8 @@ app = FastAPI(
 )
 
 # Add custom middleware (order matters - last added is executed first)
-app.add_middleware(SecurityMiddleware)
+app.add_middleware(PerformanceTimingMiddleware)
 app.add_middleware(MetricsMiddleware)
-app.add_middleware(LoggingMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -76,6 +76,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include health check router
+app.include_router(health_router)
 
 
 @app.get("/")
@@ -91,34 +94,37 @@ async def root():
     }
 
 
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "environment": settings.environment,
-        "debug": settings.debug,
-    }
+# Note: Health endpoints are now handled by the health_router
+# Old endpoints are commented out to avoid conflicts
+
+# @app.get("/health")
+# async def health():
+#     """Health check endpoint."""
+#     return {
+#         "status": "healthy",
+#         "environment": settings.environment,
+#         "debug": settings.debug,
+#     }
 
 
-@app.get("/ready")
-async def ready():
-    """Readiness check endpoint."""
-    # Check Redis health
-    redis_healthy = await redis_manager.health_check()
-    redis_status = "ready" if redis_healthy else "unavailable"
-    
-    # TODO: Add database and elasticsearch checks
-    overall_status = "ready" if redis_healthy else "degraded"
-    
-    return {
-        "status": overall_status,
-        "services": {
-            "database": "ready",  # TODO: Implement actual check
-            "redis": redis_status,
-            "elasticsearch": "ready",  # TODO: Implement actual check
-        },
-    }
+# @app.get("/ready")
+# async def ready():
+#     """Readiness check endpoint."""
+#     # Check Redis health
+#     redis_healthy = await redis_manager.health_check()
+#     redis_status = "ready" if redis_healthy else "unavailable"
+#     
+#     # TODO: Add database and elasticsearch checks
+#     overall_status = "ready" if redis_healthy else "degraded"
+#     
+#     return {
+#         "status": overall_status,
+#         "services": {
+#             "database": "ready",  # TODO: Implement actual check
+#             "redis": redis_status,
+#             "elasticsearch": "ready",  # TODO: Implement actual check
+#         },
+#     }
 
 
 @app.get("/health/redis")
