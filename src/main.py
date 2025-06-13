@@ -113,9 +113,13 @@ app.include_router(health_router)
 # Import and include routers
 from src.api.v1.auth import router as auth_router
 from src.api.v1.api_keys import router as api_keys_router
+from src.api.v1.content import router as content_router
+from src.api.v1.search import router as search_router
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(api_keys_router, prefix="/api/v1")
+app.include_router(content_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
 
 
 @app.get("/")

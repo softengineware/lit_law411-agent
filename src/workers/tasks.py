@@ -1,6 +1,7 @@
 """Celery tasks for lit_law411-agent."""
 
 import asyncio
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,14 @@ from celery import current_task
 from src.core.logging import get_logger
 from src.db.cache_manager import cache_invalidator, cache_warmer
 from src.workers.celery_app import celery_app
+
+# Import our processors and clients
+from src.processors.transcription import TranscriptionService
+from src.processors.nlp import LegalNLPService
+from src.processors.embeddings import LegalEmbeddingService
+from src.scrapers.web import WebScrapingClient
+from src.scrapers.youtube import YouTubeClient
+from src.db.clients.sync_manager import ThreeDatabaseSyncManager
 
 logger = get_logger(__name__)
 
@@ -442,4 +451,388 @@ def batch_process(self, task_name: str, items: List[Any], batch_size: int = 10):
         
     except Exception as e:
         logger.error("Batch processing failed", task=task_name, error=str(e))
+        raise
+
+
+# New MVP implementation tasks
+
+@celery_app.task(bind=True, name="process_youtube_video")
+def process_youtube_video(self, video_url: str, priority: str = "normal", 
+                         extract_audio: bool = True, transcribe: bool = True,
+                         user_id: Optional[str] = None):
+    """Complete YouTube video processing pipeline."""
+    logger.info("Processing YouTube video", url=video_url, user_id=user_id)
+    
+    try:
+        self.update_state(
+            state="PROGRESS",
+            meta={"current": 1, "total": 6, "status": "Extracting video metadata"}
+        )
+        
+        async def process_video():
+            # Initialize services
+            youtube_client = YouTubeClient()
+            transcription_service = TranscriptionService()
+            nlp_service = LegalNLPService()
+            embedding_service = LegalEmbeddingService()
+            sync_manager = ThreeDatabaseSyncManager()
+            
+            # Step 1: Extract video metadata
+            video_details = await youtube_client.get_video_details(video_url)
+            if not video_details:
+                raise ValueError(f"Could not extract video details for {video_url}")
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 2, "total": 6, "status": "Downloading and transcribing audio"}
+            )
+            
+            # Step 2: Download and transcribe audio
+            transcript = None
+            if extract_audio and transcribe:
+                transcript = await transcription_service.transcribe_youtube_video(video_url)
+            
+            self.update_state(
+                state="PROGRESS", 
+                meta={"current": 3, "total": 6, "status": "Extracting legal entities"}
+            )
+            
+            # Step 3: Extract legal entities from transcript
+            nlp_results = None
+            if transcript:
+                nlp_results = await nlp_service.process_legal_content(
+                    transcript.text, title=video_details.get("title", ""), source_type="youtube"
+                )
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 4, "total": 6, "status": "Generating embeddings"}
+            )
+            
+            # Step 4: Generate embeddings
+            embedding_results = None
+            if transcript:
+                # Embed full transcript
+                doc_embeddings = await embedding_service.embed_legal_document(
+                    transcript.text, title=video_details.get("title", ""), 
+                    document_type="youtube_transcript"
+                )
+                
+                # Embed transcript segments
+                if transcript.segments:
+                    segment_data = [
+                        {
+                            "id": seg.id,
+                            "text": seg.text,
+                            "start_time": seg.start_time,
+                            "end_time": seg.end_time,
+                            "confidence": seg.confidence
+                        }
+                        for seg in transcript.segments
+                    ]
+                    segment_embeddings = await embedding_service.embed_transcript_segments(segment_data)
+                    embedding_results = {
+                        "document": doc_embeddings,
+                        "segments": segment_embeddings
+                    }
+                else:
+                    embedding_results = {"document": doc_embeddings}
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 5, "total": 6, "status": "Storing in databases"}
+            )
+            
+            # Step 5: Store in three-database architecture
+            content_data = {
+                "content_id": str(uuid.uuid4()),
+                "source_type": "youtube",
+                "source_url": video_url,
+                "title": video_details.get("title"),
+                "description": video_details.get("description"),
+                "duration": video_details.get("duration"),
+                "upload_date": video_details.get("upload_date"),
+                "channel": video_details.get("channel_title"),
+                "transcript": transcript.dict() if transcript else None,
+                "nlp_results": nlp_results,
+                "embeddings": embedding_results,
+                "legal_relevance_score": nlp_results.get("classification", {}).get("overall_relevance", 0.0) if nlp_results else 0.0,
+                "processed_at": datetime.now().isoformat(),
+                "processed_by_user": user_id
+            }
+            
+            # Sync to all databases
+            sync_result = await sync_manager.sync_content(content_data)
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 6, "total": 6, "status": "Processing complete"}
+            )
+            
+            return {
+                "status": "completed",
+                "content_id": content_data["content_id"],
+                "video_url": video_url,
+                "title": video_details.get("title"),
+                "transcript_length": len(transcript.text) if transcript else 0,
+                "legal_entities_count": len(nlp_results.get("entities", {}).get("named_entities", [])) if nlp_results else 0,
+                "sync_result": sync_result,
+                "processing_time_seconds": 0,  # Will be calculated
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        result = run_async_task(process_video())
+        logger.info("YouTube video processing completed", result=result)
+        return result
+        
+    except Exception as e:
+        logger.error("YouTube video processing failed", video_url=video_url, error=str(e))
+        self.update_state(
+            state="FAILURE",
+            meta={"error": str(e), "traceback": str(e)}
+        )
+        raise
+
+
+@celery_app.task(bind=True, name="process_youtube_playlist")
+def process_youtube_playlist(self, playlist_url: str, priority: str = "normal",
+                           extract_audio: bool = True, transcribe: bool = True,
+                           user_id: Optional[str] = None):
+    """Process entire YouTube playlist."""
+    logger.info("Processing YouTube playlist", url=playlist_url, user_id=user_id)
+    
+    try:
+        async def process_playlist():
+            youtube_client = YouTubeClient()
+            
+            # Get playlist videos
+            playlist_details = await youtube_client.get_playlist_details(playlist_url)
+            if not playlist_details or not playlist_details.get("videos"):
+                raise ValueError(f"Could not extract playlist videos from {playlist_url}")
+            
+            videos = playlist_details["videos"]
+            total_videos = len(videos)
+            
+            logger.info(f"Processing {total_videos} videos from playlist")
+            
+            processed_videos = []
+            failed_videos = []
+            
+            for i, video in enumerate(videos, 1):
+                try:
+                    self.update_state(
+                        state="PROGRESS",
+                        meta={
+                            "current": i, 
+                            "total": total_videos, 
+                            "status": f"Processing video {i}/{total_videos}: {video.get('title', 'Unknown')}"
+                        }
+                    )
+                    
+                    # Process individual video
+                    video_task = process_youtube_video.delay(
+                        video_url=video["url"],
+                        priority=priority,
+                        extract_audio=extract_audio,
+                        transcribe=transcribe,
+                        user_id=user_id
+                    )
+                    
+                    # Wait for video processing to complete
+                    video_result = video_task.get()
+                    processed_videos.append({
+                        "video_url": video["url"],
+                        "title": video.get("title"),
+                        "result": video_result
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process video {video.get('url')}: {e}")
+                    failed_videos.append({
+                        "video_url": video.get("url"),
+                        "title": video.get("title"),
+                        "error": str(e)
+                    })
+            
+            return {
+                "status": "completed",
+                "playlist_url": playlist_url,
+                "playlist_title": playlist_details.get("title"),
+                "total_videos": total_videos,
+                "processed_count": len(processed_videos),
+                "failed_count": len(failed_videos),
+                "processed_videos": processed_videos,
+                "failed_videos": failed_videos,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        result = run_async_task(process_playlist())
+        logger.info("YouTube playlist processing completed", result=result)
+        return result
+        
+    except Exception as e:
+        logger.error("YouTube playlist processing failed", playlist_url=playlist_url, error=str(e))
+        raise
+
+
+@celery_app.task(bind=True, name="scrape_website")
+def scrape_website(self, website_url: str, max_depth: int = 3, 
+                  respect_robots: bool = True, priority: str = "normal",
+                  user_id: Optional[str] = None):
+    """Scrape and process legal website content."""
+    logger.info("Scraping website", url=website_url, user_id=user_id)
+    
+    try:
+        self.update_state(
+            state="PROGRESS",
+            meta={"current": 1, "total": 5, "status": "Initializing web scraper"}
+        )
+        
+        async def scrape_and_process():
+            # Initialize services
+            nlp_service = LegalNLPService()
+            embedding_service = LegalEmbeddingService()
+            sync_manager = ThreeDatabaseSyncManager()
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 2, "total": 5, "status": "Scraping website content"}
+            )
+            
+            # Scrape website
+            async with WebScrapingClient() as scraper:
+                scraped_content = await scraper.scrape_url(website_url)
+                
+                if not scraped_content:
+                    raise ValueError(f"No content extracted from {website_url}")
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 3, "total": 5, "status": "Processing legal content"}
+            )
+            
+            # Process with NLP
+            nlp_results = await nlp_service.process_legal_content(
+                scraped_content.content, 
+                title=scraped_content.title or "",
+                source_type="website"
+            )
+            
+            self.update_state(
+                state="PROGRESS", 
+                meta={"current": 4, "total": 5, "status": "Generating embeddings"}
+            )
+            
+            # Generate embeddings
+            embedding_results = await embedding_service.embed_legal_document(
+                scraped_content.content,
+                title=scraped_content.title or "",
+                document_type="legal_website"
+            )
+            
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": 5, "total": 5, "status": "Storing in databases"}
+            )
+            
+            # Store in databases
+            content_data = {
+                "content_id": str(uuid.uuid4()),
+                "source_type": "website",
+                "source_url": website_url,
+                "title": scraped_content.title,
+                "content": scraped_content.content,
+                "summary": scraped_content.summary,
+                "author": scraped_content.author,
+                "published_date": scraped_content.published_date.isoformat() if scraped_content.published_date else None,
+                "domain": scraped_content.source_domain,
+                "metadata": scraped_content.metadata,
+                "nlp_results": nlp_results,
+                "embeddings": embedding_results,
+                "legal_relevance_score": scraped_content.legal_relevance_score,
+                "processed_at": datetime.now().isoformat(),
+                "processed_by_user": user_id
+            }
+            
+            sync_result = await sync_manager.sync_content(content_data)
+            
+            return {
+                "status": "completed",
+                "content_id": content_data["content_id"],
+                "website_url": website_url,
+                "title": scraped_content.title,
+                "content_length": len(scraped_content.content),
+                "legal_relevance_score": scraped_content.legal_relevance_score,
+                "legal_entities_count": len(nlp_results.get("entities", {}).get("named_entities", [])),
+                "sync_result": sync_result,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        result = run_async_task(scrape_and_process())
+        logger.info("Website scraping completed", result=result)
+        return result
+        
+    except Exception as e:
+        logger.error("Website scraping failed", website_url=website_url, error=str(e))
+        raise
+
+
+@celery_app.task(bind=True, name="process_website_batch")
+def process_website_batch(self, website_urls: List[str], priority: str = "normal",
+                         user_id: Optional[str] = None):
+    """Process multiple websites in batch."""
+    logger.info("Processing website batch", count=len(website_urls), user_id=user_id)
+    
+    try:
+        total_sites = len(website_urls)
+        processed_sites = []
+        failed_sites = []
+        
+        for i, url in enumerate(website_urls, 1):
+            try:
+                self.update_state(
+                    state="PROGRESS",
+                    meta={
+                        "current": i,
+                        "total": total_sites,
+                        "status": f"Processing site {i}/{total_sites}: {url}"
+                    }
+                )
+                
+                # Process individual website
+                site_task = scrape_website.delay(
+                    website_url=url,
+                    priority=priority,
+                    user_id=user_id
+                )
+                
+                # Wait for completion
+                site_result = site_task.get()
+                processed_sites.append({
+                    "url": url,
+                    "result": site_result
+                })
+                
+            except Exception as e:
+                logger.error(f"Failed to process website {url}: {e}")
+                failed_sites.append({
+                    "url": url,
+                    "error": str(e)
+                })
+        
+        result = {
+            "status": "completed",
+            "total_sites": total_sites,
+            "processed_count": len(processed_sites),
+            "failed_count": len(failed_sites),
+            "processed_sites": processed_sites,
+            "failed_sites": failed_sites,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info("Website batch processing completed", result=result)
+        return result
+        
+    except Exception as e:
+        logger.error("Website batch processing failed", error=str(e))
         raise
