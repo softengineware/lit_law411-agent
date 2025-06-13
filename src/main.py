@@ -77,8 +77,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include health check router
+# Include routers
 app.include_router(health_router)
+
+# Import and include auth router
+from src.api.v1.auth import router as auth_router
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.get("/")
