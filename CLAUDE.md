@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 lit_law411-agent is an enterprise-grade Legal Knowledge Base Agent that automatically gathers, processes, and organizes legal knowledge from diverse sources including YouTube videos and legal websites. Built with modern microservices architecture, it creates a comprehensive, searchable knowledge base for the Law411 platform.
 
+**IMPORTANT**: This agent is part of the LIT_MASTER-AGENT ecosystem, serving as one of four specialized sub-agents coordinated by the central lit_lawyer-agent (SUITS) system. It provides legal research and knowledge extraction capabilities to support litigation strategy and motion drafting.
+
 ## System Architecture
 
 ### High-Level Architecture
@@ -420,30 +422,133 @@ This project implements a standardized three-database architecture as defined in
 
 For detailed implementation requirements, see `THREE_DATABASE_STRATEGY.md`.
 
+## Agent Ecosystem Integration
+
+This agent operates within the LIT_MASTER-AGENT ecosystem alongside three other specialized agents:
+
+### Ecosystem Architecture
+```
+LIT_MASTER-AGENT (SUITS) - Central Coordinator
+├── lit_audio-agent (SUITS-AUDIO) ✅ Ready - Transcription & Audio Processing
+├── lit_rules-agent (LAW-INSIGHT) ✅ Ready - Legal Rules & Motion Templates  
+├── lit_email-agent 🚧 Development - Email Intelligence & Correspondence
+└── lit_law411-agent (THIS AGENT) ❌ Core Development Required
+```
+
+### Integration Status: **DEVELOPMENT PHASE - NOT READY FOR INTEGRATION**
+
+**Current Capability**: Health monitoring and infrastructure only
+**Required Development**: Core functionality implementation needed before integration
+
+### Integration Requirements
+
+#### Phase 1: Core Functionality Implementation (CRITICAL - 2-3 months)
+1. **YouTube Data API Integration**
+   - Video metadata extraction and audio download
+   - Integration with Whisper transcription pipeline
+   - Content quality validation and filtering
+
+2. **Web Scraping Infrastructure** 
+   - Scrapy spiders for legal websites and RSS feeds
+   - Content extraction and legal relevance scoring
+   - Rate limiting and politeness policies
+
+3. **NLP Processing Pipeline**
+   - Whisper audio transcription processing
+   - spaCy legal entity recognition (cases, statutes, courts)
+   - OpenAI embedding generation for semantic search
+
+4. **Three-Database Storage Operations**
+   - Complete Airtable, Supabase, and Pinecone client implementations
+   - Sync operations with consistency checking
+   - Data persistence for all content types
+
+#### Phase 2: Integration-Ready Features (4-6 months)
+1. **Legal Research API**
+   - Semantic search across YouTube and web content
+   - Entity extraction (cases, statutes, parties, courts)
+   - Legal topic classification and relevance scoring
+
+2. **LIT_MASTER-AGENT Coordination**
+   - Service discovery and health reporting
+   - Shared authentication (OAuth2/JWT) 
+   - Event-driven updates and coordination
+   - Resource management (API rate limiting)
+
+### Integration Challenges
+1. **Resource Intensive**: GPU/CPU for transcription, API costs for embeddings
+2. **Rate Limiting**: YouTube Data API, OpenAI embeddings, web scraping
+3. **Data Quality**: External content validation and legal accuracy verification
+4. **Storage Coordination**: Three-database consistency across agent ecosystem
+
+### Temporary Integration Strategy
+Currently, LIT_MASTER-AGENT can only use basic health monitoring:
+```python
+# Limited current integration capability
+class Law411Service:
+    async def check_service_health(self) -> ServiceStatus:
+        return await self.status_client.get_health()
+    
+    # NOTE: Core legal knowledge functions not available yet
+```
+
+### Future Full Integration (Post-Development)
+```python
+# Target integration after core development
+class Law411Service:
+    async def extract_legal_entities(self, text: str) -> List[LegalEntity]:
+        # Extract cases, statutes, courts, parties, etc.
+        
+    async def search_legal_knowledge(self, query: str) -> List[LegalContent]:
+        # Semantic search across YouTube and web content
+        
+    async def get_case_insights(self, case_citation: str) -> CaseAnalysis:
+        # Deep analysis of legal cases and precedents
+        
+    async def find_supporting_content(self, legal_issue: str) -> List[SupportingEvidence]:
+        # Find relevant YouTube videos and articles for legal arguments
+```
+
+## Development Priorities for LIT_MASTER-AGENT Integration
+
+### Immediate (0-2 weeks)
+- Use health check endpoints for service monitoring
+- Plan integration architecture for future capabilities
+
+### Short-term (2-8 weeks) 
+- Begin core YouTube API and transcription implementation
+- Implement basic storage operations
+
+### Medium-term (2-6 months)
+- Complete NLP pipeline and search functionality
+- Begin integration testing with LIT_MASTER-AGENT
+
+### Long-term (6+ months)
+- Full legal knowledge extraction and research capabilities
+- Production-ready integration with complete agent ecosystem
+
 ## Next Steps
 
-Based on current project phase, focus on:
+**CRITICAL**: This agent requires substantial core development before integration with LIT_MASTER-AGENT ecosystem.
 
-1. **Phase 1: Foundation**
-   - Initialize Poetry project
-   - Configure Docker Compose
-   - Set up GitHub Actions CI/CD
-   - Create database connections
+### Current Phase: **CORE DEVELOPMENT REQUIRED**
 
-2. **Phase 2: Core Features**
-   - Implement YouTube ingestion
-   - Build processing pipeline
-   - Set up all three databases
-   - Create search functionality
+1. **Immediate Development Focus**
+   - Implement YouTube Data API integration
+   - Build web scraping infrastructure
+   - Complete three-database storage operations
+   - Integrate Whisper transcription pipeline
 
-3. **Phase 3: Enhancement**
-   - Add advanced NLP features
-   - Build admin dashboard
-   - Optimize performance
+2. **Integration Preparation**
+   - Service discovery and health reporting
+   - Authentication coordination with other agents
+   - Event-driven update mechanisms
+   - Rate limiting coordination
 
-4. **Phase 4: Production Ready**
-   - Security hardening
-   - Load testing
-   - Deployment setup
+3. **Quality Assurance**
+   - Legal content validation systems
+   - Performance optimization
+   - Error handling and recovery
+   - Integration testing
 
-Remember to update task status in `lit_law411-agent_TASKS.md` as you progress!
+Remember: LIT_MASTER-AGENT integration timeline depends on completion of core functionality implementation!

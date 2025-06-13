@@ -1635,6 +1635,54 @@ This section will be updated as new tasks are discovered during development.
 
 ### Issues Found During Analysis (2025-01-13)
 
+#### ISSUE-006: LIT_MASTER-AGENT Integration Requirements
+
+**Priority**: High  
+**Status**: 🔴 NEW INTEGRATION REQUIREMENTS
+**Description**: Analysis of lit_lawyer-agent (SUITS) ecosystem reveals specific integration requirements and development priorities to support litigation strategy coordination.
+**Dependencies**: Core functionality implementation required before meaningful integration
+**Integration Timeline**: 3-6 months of development needed
+
+**Integration Tasks Required**:
+
+##### Phase 1: Service Integration Preparation (HIGH PRIORITY)
+- **INT-001**: Implement service discovery registration with LIT_MASTER-AGENT
+- **INT-002**: Add health monitoring endpoints compatible with agent ecosystem
+- **INT-003**: Implement JWT/OAuth2 coordination with lit_lawyer-agent authentication
+- **INT-004**: Create event bus integration for real-time updates to other agents
+- **INT-005**: Add resource coordination (API rate limiting, GPU scheduling)
+
+##### Phase 2: Core Functionality for Legal Research (CRITICAL)
+- **INT-006**: Complete YouTube Data API integration for legal video content extraction
+- **INT-007**: Implement web scraping infrastructure for legal websites and RSS feeds
+- **INT-008**: Build Whisper transcription pipeline for audio content processing
+- **INT-009**: Integrate spaCy legal entity recognition (cases, statutes, courts, parties)
+- **INT-010**: Implement OpenAI embedding generation for semantic search capabilities
+
+##### Phase 3: LIT_MASTER-AGENT Coordination Features
+- **INT-011**: Create legal research API endpoints for motion drafting support
+- **INT-012**: Implement entity extraction services for case intelligence
+- **INT-013**: Build semantic search across all legal content for litigation strategy
+- **INT-014**: Add legal topic classification for practice area organization
+- **INT-015**: Create case insight generation for supporting legal arguments
+
+##### Phase 4: Advanced Agent Ecosystem Features
+- **INT-016**: Implement cross-agent data correlation with audio transcripts
+- **INT-017**: Add legal precedent discovery for motion template population
+- **INT-018**: Create timeline integration with email and audio intelligence
+- **INT-019**: Build comprehensive legal knowledge synthesis across all agents
+- **INT-020**: Implement real-time legal research updates for active cases
+
+**Agent Ecosystem Coordination Issues**:
+- **Resource Sharing**: GPU/CPU coordination with lit_audio-agent for transcription
+- **Rate Limiting**: YouTube API, OpenAI API limits shared across ecosystem
+- **Storage Strategy**: Large file coordination across three-database architecture
+- **Event Coordination**: Real-time updates between legal research and case management
+
+**Current Integration Capability**: Health monitoring only - core legal research functions not operational
+
+### Issues Found During Analysis (2025-01-13)
+
 #### ISSUE-003: API Key Test Configuration
 
 **Priority**: Medium  
